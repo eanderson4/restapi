@@ -239,7 +239,7 @@ def exportFeatureSet_arcpy(feature_set, out_fc, include_domains=False, qualified
         return original
 
 
-def exportFeatureSet_os(feature_set, out_fc, outSR=None, **kwargs):
+def exportFeatureSet_os(feature_set, out_fc, outSR=None,extra_feature_sets=[], **kwargs):
         """export features (JSON result) to shapefile or feature class
 
         Required:
@@ -292,6 +292,12 @@ def exportFeatureSet_os(feature_set, out_fc, outSR=None, **kwargs):
         for feat in feature_set:
             row = [feat.get(field) for field in [f[0] for f in field_map]]
             w.add_row(Geometry(feat.geometry).asShape(), row)
+
+        for efs in extra_feature_sets:
+            for feat in feature_set:
+                row = [feat.get(field) for field in [f[0] for f in field_map]]
+                w.add_row(Geometry(feat.geometry).asShape(), row)
+
 
         w.save()
         print('Created: "{0}"'.format(out_fc))
@@ -1328,9 +1334,17 @@ class MapServiceLayer(RESTEndpoint, SpatialReferenceMixin, FieldsMixin):
                 if isShp:
                     if self.query(returnCountOnly=True).count > self.maxRecordCount:
                         doesExceed = True
-                        out_fc = r'in_memory\restapi_chunk_{}'.format(os.path.splitext(os.path.basename(orig))[0])
+                        #out_fc = r'tmp/in_memory\restapi_chunk_{}'.format(os.path.splitext(os.path.basename(orig))[0])
+                
+                fs_list=[]
+                count=0
                 for fs in self.query_in_chunks(where, fields, params, **kwargs):
-                    exportFeatureSet(fs, out_fc, include_domains=False)
+                    count+=1
+                    print('Queried fs',count)
+                    fs_list.append(fs)
+                    
+                if len(fs_list)>0:    
+                    exportFeatureSet(fs, out_fc, include_domains=False,extra_feature_sets=fs_list)
 
                 if not isShp and include_domains:
                     add_domains_from_feature_set(out_fc, fs)
